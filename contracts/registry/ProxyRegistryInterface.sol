@@ -4,7 +4,7 @@
 
 */
 
-pragma solidity 0.7.5;
+pragma solidity ^0.8.6;
 
 import "./OwnableDelegateProxy.sol";
 
@@ -13,9 +13,7 @@ import "./OwnableDelegateProxy.sol";
  * @author Wyvern Protocol Developers
  */
 interface ProxyRegistryInterface {
-
     function delegateProxyImplementation() external returns (address);
 
     function proxies(address owner) external returns (OwnableDelegateProxy);
-
 }

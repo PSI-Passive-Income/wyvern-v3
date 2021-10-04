@@ -4,16 +4,14 @@
 
 */
 
-pragma solidity 0.7.5;
+pragma solidity ^0.8.6;
 
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract TestERC20 is ERC20("test", "TST") {
-
     /**
      */
-    constructor () public {
-    }
+    constructor() {}
 
     /**
      */
@@ -21,5 +19,4 @@ contract TestERC20 is ERC20("test", "TST") {
         _mint(to, value);
         return true;
     }
-
 }

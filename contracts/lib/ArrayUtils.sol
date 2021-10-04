@@ -7,61 +7,81 @@
 
 */
 
-pragma solidity 0.7.5;
-
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+pragma solidity ^0.8.6;
 
 /**
  * @title ArrayUtils
  * @author Wyvern Protocol Developers
  */
 library ArrayUtils {
-
     /**
      * Replace bytes in an array with bytes in another array, guarded by a bitmask
-     * Efficiency of this function is a bit unpredictable because of the EVM's word-specific model (arrays under 32 bytes will be slower)
+     * Efficiency of this function is a bit unpredictable because of the EVM's
+     * word-specific model (arrays under 32 bytes will be slower)
      * Modifies the provided byte array parameter in place
-     * 
+     *
      * @dev Mask must be the size of the byte array. A nonzero byte means the byte array can be changed.
      * @param array The original array
      * @param desired The target array
      * @param mask The mask specifying which bits can be changed
      */
-    function guardedArrayReplace(bytes memory array, bytes memory desired, bytes memory mask)
-        internal
-        pure
-    {
-        require(array.length == desired.length, "Arrays have different lengths");
-        require(array.length == mask.length, "Array and mask have different lengths");
+    function guardedArrayReplace(
+        bytes memory array,
+        bytes memory desired,
+        bytes memory mask
+    ) internal pure {
+        require(
+            array.length == desired.length,
+            "Arrays have different lengths"
+        );
+        require(
+            array.length == mask.length,
+            "Array and mask have different lengths"
+        );
 
-        uint words = array.length / 0x20;
-        uint index = words * 0x20;
+        uint256 words = array.length / 0x20;
+        uint256 index = words * 0x20;
         assert(index / 0x20 == words);
-        uint i;
+        uint256 i;
 
         for (i = 0; i < words; i++) {
             /* Conceptually: array[i] = (!mask[i] && array[i]) || (mask[i] && desired[i]), bitwise in word chunks. */
             assembly {
                 let commonIndex := mul(0x20, add(1, i))
                 let maskValue := mload(add(mask, commonIndex))
-                mstore(add(array, commonIndex), or(and(not(maskValue), mload(add(array, commonIndex))), and(maskValue, mload(add(desired, commonIndex)))))
+                mstore(
+                    add(array, commonIndex),
+                    or(
+                        and(not(maskValue), mload(add(array, commonIndex))),
+                        and(maskValue, mload(add(desired, commonIndex)))
+                    )
+                )
             }
         }
 
         /* Deal with the last section of the byte array. */
         if (words > 0) {
-            /* This overlaps with bytes already set but is still more efficient than iterating through each of the remaining bytes individually. */
+            /*  This overlaps with bytes already set but is still more efficient than iterating 
+                through each of the remaining bytes individually. */
             i = words;
             assembly {
                 let commonIndex := mul(0x20, add(1, i))
                 let maskValue := mload(add(mask, commonIndex))
-                mstore(add(array, commonIndex), or(and(not(maskValue), mload(add(array, commonIndex))), and(maskValue, mload(add(desired, commonIndex)))))
+                mstore(
+                    add(array, commonIndex),
+                    or(
+                        and(not(maskValue), mload(add(array, commonIndex))),
+                        and(maskValue, mload(add(desired, commonIndex)))
+                    )
+                )
             }
         } else {
             /* If the byte array is shorter than a word, we must unfortunately do the whole thing bytewise.
                (bounds checks could still probably be optimized away in assembly, but this is a rare case) */
             for (i = index; i < array.length; i++) {
-                array[i] = ((mask[i] ^ 0xff) & array[i]) | (mask[i] & desired[i]);
+                array[i] =
+                    ((mask[i] ^ 0xff) & array[i]) |
+                    (mask[i] & desired[i]);
             }
         }
     }
@@ -69,7 +89,7 @@ library ArrayUtils {
     /**
      * Test if two arrays are equal
      * Source: https://github.com/GNSPS/solidity-bytes-utils/blob/master/contracts/BytesLib.sol
-     * 
+     *
      * @dev Arrays must be of equal length, otherwise will return false
      * @param a First array
      * @param b Second array
@@ -99,8 +119,8 @@ library ArrayUtils {
 
                 for {
                     let cc := add(b, 0x20)
-                // the next line is the loop condition:
-                // while(uint(mc < end) + cb == 2)
+                    // the next line is the loop condition:
+                    // while(uint(mc < end) + cb == 2)
                 } eq(add(lt(mc, end), cb), 2) {
                     mc := add(mc, 0x20)
                     cc := add(cc, 0x20)
@@ -129,14 +149,12 @@ library ArrayUtils {
      * @param _start start index
      * @return Whether or not all bytes in the arrays are equal
      */
-    function arrayDrop(bytes memory _bytes, uint _start)
+    function arrayDrop(bytes memory _bytes, uint256 _start)
         internal
         pure
         returns (bytes memory)
     {
-
-        uint _length = SafeMath.sub(_bytes.length, _start);
-        return arraySlice(_bytes, _start, _length);
+        return arraySlice(_bytes, _start, _bytes.length - _start);
     }
 
     /**
@@ -146,12 +164,11 @@ library ArrayUtils {
      * @param _length elements to take
      * @return Whether or not all bytes in the arrays are equal
      */
-    function arrayTake(bytes memory _bytes, uint _length)
+    function arrayTake(bytes memory _bytes, uint256 _length)
         internal
         pure
         returns (bytes memory)
     {
-
         return arraySlice(_bytes, 0, _length);
     }
 
@@ -164,12 +181,11 @@ library ArrayUtils {
      * @param _length length to take
      * @return Whether or not all bytes in the arrays are equal
      */
-    function arraySlice(bytes memory _bytes, uint _start, uint _length)
-        internal
-        pure
-        returns (bytes memory)
-    {
-
+    function arraySlice(
+        bytes memory _bytes,
+        uint256 _start,
+        uint256 _length
+    ) internal pure returns (bytes memory) {
         bytes memory tempBytes;
 
         assembly {
@@ -193,13 +209,22 @@ library ArrayUtils {
                 // because when slicing multiples of 32 bytes (lengthmod == 0)
                 // the following copy loop was copying the origin's length
                 // and then ending prematurely not copying everything it should.
-                let mc := add(add(tempBytes, lengthmod), mul(0x20, iszero(lengthmod)))
+                let mc := add(
+                    add(tempBytes, lengthmod),
+                    mul(0x20, iszero(lengthmod))
+                )
                 let end := add(mc, _length)
 
                 for {
                     // The multiplication in the next line has the same exact purpose
                     // as the one above.
-                    let cc := add(add(add(_bytes, lengthmod), mul(0x20, iszero(lengthmod))), _start)
+                    let cc := add(
+                        add(
+                            add(_bytes, lengthmod),
+                            mul(0x20, iszero(lengthmod))
+                        ),
+                        _start
+                    )
                 } lt(mc, end) {
                     mc := add(mc, 0x20)
                     cc := add(cc, 0x20)
@@ -231,10 +256,10 @@ library ArrayUtils {
      * @param source Byte array to write
      * @return End memory index
      */
-    function unsafeWriteBytes(uint index, bytes memory source)
+    function unsafeWriteBytes(uint256 index, bytes memory source)
         internal
         pure
-        returns (uint)
+        returns (uint256)
     {
         if (source.length > 0) {
             assembly {
@@ -242,7 +267,9 @@ library ArrayUtils {
                 let end := add(source, add(0x20, length))
                 let arrIndex := add(source, 0x20)
                 let tempIndex := index
-                for { } eq(lt(arrIndex, end), 1) {
+                for {
+
+                } eq(lt(arrIndex, end), 1) {
                     arrIndex := add(arrIndex, 0x20)
                     tempIndex := add(tempIndex, 0x20)
                 } {
@@ -261,12 +288,12 @@ library ArrayUtils {
      * @param source Address to write
      * @return End memory index
      */
-    function unsafeWriteAddress(uint index, address source)
+    function unsafeWriteAddress(uint256 index, address source)
         internal
         pure
-        returns (uint)
+        returns (uint256)
     {
-        uint conv = uint(source) << 0x60;
+        uint256 conv = uint256(uint160(source)) << 0x60;
         assembly {
             mstore(index, conv)
             index := add(index, 0x14)
@@ -281,10 +308,10 @@ library ArrayUtils {
      * @param source uint to write
      * @return End memory index
      */
-    function unsafeWriteUint(uint index, uint source)
+    function unsafeWriteUint(uint256 index, uint256 source)
         internal
         pure
-        returns (uint)
+        returns (uint256)
     {
         assembly {
             mstore(index, source)
@@ -300,10 +327,10 @@ library ArrayUtils {
      * @param source uint8 to write
      * @return End memory index
      */
-    function unsafeWriteUint8(uint index, uint8 source)
+    function unsafeWriteUint8(uint256 index, uint8 source)
         internal
         pure
-        returns (uint)
+        returns (uint256)
     {
         assembly {
             mstore8(index, source)
@@ -311,5 +338,4 @@ library ArrayUtils {
         }
         return index;
     }
-
 }

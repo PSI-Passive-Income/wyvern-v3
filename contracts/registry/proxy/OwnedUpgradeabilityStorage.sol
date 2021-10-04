@@ -1,11 +1,10 @@
-pragma solidity 0.7.5;
+pragma solidity ^0.8.6;
 
 /**
  * @title OwnedUpgradeabilityStorage
  * @dev This contract keeps track of the upgradeability owner
  */
 contract OwnedUpgradeabilityStorage {
-
     // Current implementation
     address internal _implementation;
 
@@ -26,5 +25,4 @@ contract OwnedUpgradeabilityStorage {
     function setUpgradeabilityOwner(address newUpgradeabilityOwner) internal {
         _upgradeabilityOwner = newUpgradeabilityOwner;
     }
-
 }

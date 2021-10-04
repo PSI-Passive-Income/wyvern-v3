@@ -1,4 +1,4 @@
-pragma solidity 0.7.5;
+pragma solidity ^0.8.6;
 
 import "./Proxy.sol";
 import "./OwnedUpgradeabilityStorage.sol";
@@ -25,7 +25,7 @@ contract OwnedUpgradeabilityProxy is Proxy, OwnedUpgradeabilityStorage {
      * @dev Tells the address of the current implementation
      * @return address of the current implementation
      */
-    function implementation() override public view returns (address) {
+    function implementation() public view override returns (address) {
         return _implementation;
     }
 
@@ -33,25 +33,31 @@ contract OwnedUpgradeabilityProxy is Proxy, OwnedUpgradeabilityStorage {
      * @dev Tells the proxy type (EIP 897)
      * @return proxyTypeId Proxy type, 2 for forwarding proxy
      */
-    function proxyType() override public pure returns (uint256 proxyTypeId) {
+    function proxyType() public pure override returns (uint256 proxyTypeId) {
         return 2;
     }
 
     /**
      * @dev Upgrades the implementation address
-     * @param implementation representing the address of the new implementation to be set
+     * @param implementation_ representing the address of the new implementation to be set
      */
-    function _upgradeTo(address implementation) internal {
-        require(_implementation != implementation, "Proxy already uses this implementation");
-        _implementation = implementation;
-        emit Upgraded(implementation);
+    function _upgradeTo(address implementation_) internal {
+        require(
+            _implementation != implementation_,
+            "Proxy already uses this implementation"
+        );
+        _implementation = implementation_;
+        emit Upgraded(implementation_);
     }
 
     /**
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyProxyOwner() {
-        require(msg.sender == proxyOwner(), "Only the proxy owner can call this method");
+        require(
+            msg.sender == proxyOwner(),
+            "Only the proxy owner can call this method"
+        );
         _;
     }
 
@@ -75,22 +81,26 @@ contract OwnedUpgradeabilityProxy is Proxy, OwnedUpgradeabilityStorage {
 
     /**
      * @dev Allows the upgradeability owner to upgrade the current implementation of the proxy.
-     * @param implementation representing the address of the new implementation to be set.
+     * @param implementation_ representing the address of the new implementation to be set.
      */
-    function upgradeTo(address implementation) public onlyProxyOwner {
-        _upgradeTo(implementation);
+    function upgradeTo(address implementation_) public onlyProxyOwner {
+        _upgradeTo(implementation_);
     }
 
     /**
      * @dev Allows the upgradeability owner to upgrade the current implementation of the proxy
      * and delegatecall the new implementation for initialization.
-     * @param implementation representing the address of the new implementation to be set.
+     * @param implementation_ representing the address of the new implementation to be set.
      * @param data represents the msg.data to bet sent in the low level call. This parameter may include the function
      * signature of the implementation to be called with the needed payload
      */
-    function upgradeToAndCall(address implementation, bytes memory data) payable public onlyProxyOwner {
-        upgradeTo(implementation);
-        (bool success,) = address(this).delegatecall(data);
+    function upgradeToAndCall(address implementation_, bytes memory data)
+        public
+        payable
+        onlyProxyOwner
+    {
+        upgradeTo(implementation_);
+        (bool success, ) = address(this).delegatecall(data);
         require(success, "Call failed after proxy upgrade");
     }
 }
