@@ -1,9 +1,9 @@
 /* 
-
-  Proxy contract to hold access to assets on behalf of a user (e.g. ERC20 approve) and execute calls under particular conditions.
-
+  Proxy contract to hold access to assets on behalf of a user (e.g. ERC20 approve) and execute calls 
+  under particular conditions.
 */
 
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
 import "./ProxyRegistry.sol";
@@ -67,8 +67,8 @@ contract AuthenticatedProxy is TokenRecipient, OwnedUpgradeabilityStorage {
     /**
      * Execute a message call from the proxy contract
      *
-     * @dev Can be called by the user, or by a contract authorized by the registry 
-     * as long as the user has not revoked access
+     * @dev Can be called by the user, or by a contract authorized by the registry as
+     * long as the user has not revoked access
      * @param dest Address to which the call will be sent
      * @param howToCall Which kind of call to make
      * @param data Calldata to send
@@ -79,16 +79,7 @@ contract AuthenticatedProxy is TokenRecipient, OwnedUpgradeabilityStorage {
         HowToCall howToCall,
         bytes memory data
     ) public returns (bool result) {
-        require(
-            msg.sender == user || (!revoked && registry.contracts(msg.sender)),
-            "Authenticated proxy can only be called by its user, or by a contract authorized by the registry as long as the user has not revoked access"
-        );
-        bytes memory ret;
-        if (howToCall == HowToCall.Call) {
-            (result, ret) = dest.call(data);
-        } else if (howToCall == HowToCall.DelegateCall) {
-            (result, ret) = dest.delegatecall(data);
-        }
+        (result, ) = _proxy(dest, howToCall, data);
         return result;
     }
 
@@ -105,6 +96,51 @@ contract AuthenticatedProxy is TokenRecipient, OwnedUpgradeabilityStorage {
         HowToCall howToCall,
         bytes memory data
     ) public {
-        require(proxy(dest, howToCall, data), "Proxy assertion failed");
+        (bool result, string memory revertReason) = _proxy(
+            dest,
+            howToCall,
+            data
+        );
+        require(
+            result,
+            string(abi.encodePacked("Proxy assertion failed: ", revertReason))
+        );
+    }
+
+    function _proxy(
+        address dest,
+        HowToCall howToCall,
+        bytes memory data
+    ) internal returns (bool result, string memory reason) {
+        require(
+            msg.sender == user || (!revoked && registry.contracts(msg.sender)),
+            "Authenticated proxy can only be called by its user, or by a contract authorized by the registry as long as the user has not revoked access"
+        );
+
+        result = false;
+        bytes memory ret;
+        if (howToCall == HowToCall.Call) {
+            (result, ret) = dest.call(data);
+        } else if (howToCall == HowToCall.DelegateCall) {
+            (result, ret) = dest.delegatecall(data);
+        }
+        if (!result) reason = _getRevertMsg(ret);
+
+        return (result, reason);
+    }
+
+    function _getRevertMsg(bytes memory _returnData)
+        internal
+        pure
+        returns (string memory)
+    {
+        // If the _res length is less than 68, then the transaction failed silently (without a revert message)
+        if (_returnData.length < 68) return "Reverted silently";
+
+        assembly {
+            // Slice the sighash.
+            _returnData := add(_returnData, 0x04)
+        }
+        return abi.decode(_returnData, (string)); // All that remains is the revert string
     }
 }
