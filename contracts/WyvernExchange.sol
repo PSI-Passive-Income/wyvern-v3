@@ -20,18 +20,9 @@ contract WyvernExchange is Exchange {
     string public constant codename = "Ancalagon";
 
     constructor(
-        uint256 chainId,
         address[] memory registryAddrs,
         bytes memory customPersonalSignPrefix
-    ) {
-        DOMAIN_SEPARATOR = hash(
-            EIP712Domain({
-                name: name,
-                version: version,
-                chainId: chainId,
-                verifyingContract: address(this)
-            })
-        );
+    ) Exchange(name, version) {
         for (uint256 ind = 0; ind < registryAddrs.length; ind++) {
             registries[registryAddrs[ind]] = true;
         }

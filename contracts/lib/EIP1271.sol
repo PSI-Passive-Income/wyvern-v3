@@ -1,27 +1,41 @@
-/*
-
-  << EIP 1271 >>
-
-*/
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.6;
 
-abstract contract ERC1271 {
-    // bytes4(keccak256("isValidSignature(bytes,bytes)")
-    bytes4 internal constant MAGICVALUE = 0x20c13b0b;
+import "@openzeppelin/contracts-upgradeable/interfaces/IERC1271Upgradeable.sol";
+
+abstract contract ERC1271 is IERC1271Upgradeable {
+    bytes4 public constant ERC1271_INTERFACE_ID = 0xfb855dc9; // this.isValidSignature.selector
+
+    bytes4 public constant ERC1271_RETURN_VALID_SIGNATURE = 0x1626ba7e;
+    bytes4 public constant ERC1271_RETURN_INVALID_SIGNATURE = 0x00000000;
 
     /**
-     * @dev Should return whether the signature provided is valid for the provided data
-     * @param _data Arbitrary length data signed on the behalf of address(this)
+     * @dev Function must be implemented by deriving contract
+     * @param _hash Arbitrary length data signed on the behalf of address(this)
      * @param _signature Signature byte array associated with _data
+     * @return A bytes4 magic value 0x1626ba7e if the signature check passes, 0x00000000 if not
      *
-     * MUST return the bytes4 magic value 0x20c13b0b when function passes.
      * MUST NOT modify state (using STATICCALL for solc < 0.5, view modifier for solc > 0.5)
      * MUST allow external calls
      */
-    function isValidSignature(bytes memory _data, bytes memory _signature)
+    function isValidSignature(bytes32 _hash, bytes memory _signature)
         public
         view
         virtual
-        returns (bytes4 magicValue);
+        override
+        returns (bytes4);
+
+    function returnIsValidSignatureMagicNumber(bool isValid)
+        internal
+        pure
+        returns (bytes4)
+    {
+        return
+            isValid
+                ? ERC1271_RETURN_VALID_SIGNATURE
+                : ERC1271_RETURN_INVALID_SIGNATURE;
+    }
+
+    uint256[50] private __gap;
 }

@@ -15,6 +15,8 @@ import "./ExchangeCore.sol";
 contract Exchange is ExchangeCore {
     /* external ABI-encodable method wrappers. */
 
+    constructor(string memory name, string memory version) ExchangeCore(name, version) {}
+
     function hashOrder_(
         address registry,
         address maker,
@@ -40,14 +42,6 @@ contract Exchange is ExchangeCore {
                     salt
                 )
             );
-    }
-
-    function hashToSign_(bytes32 orderHash)
-        external
-        view
-        returns (bytes32 hash)
-    {
-        return hashToSign(orderHash);
     }
 
     function validateOrderParameters_(

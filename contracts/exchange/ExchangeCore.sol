@@ -8,9 +8,23 @@ pragma solidity ^0.8.6;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+
+
+/*
+
+  << Exchange Core >>
+
+*/
+
+pragma solidity ^0.8.6;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
 import "../lib/StaticCaller.sol";
 import "../lib/ReentrancyGuarded.sol";
-import "../lib/EIP712.sol";
 import "../lib/EIP1271.sol";
 import "../registry/ProxyRegistryInterface.sol";
 import "../registry/AuthenticatedProxy.sol";
@@ -20,7 +34,10 @@ import "../registry/AuthenticatedProxy.sol";
  * @author Wyvern Protocol Developers
  */
 contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
-    bytes4 internal constant EIP_1271_MAGICVALUE = 0x20c13b0b;
+    using Address for address;
+    using ECDSA for bytes32;
+
+    bytes4 internal constant EIP_1271_MAGICVALUE = 0x1626ba7e;
     bytes internal personalSignPrefix = "\x19Ethereum Signed Message:\n";
 
     /* Struct definitions. */
@@ -108,6 +125,8 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
         bytes32 indexed metadata
     );
 
+    constructor(string memory name, string memory version) EIP712(name, version) {}
+
     /* Functions */
 
     function hashOrder(Order memory order)
@@ -130,18 +149,6 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
                     order.expirationTime,
                     order.salt
                 )
-            );
-    }
-
-    function hashToSign(bytes32 orderHash)
-        internal
-        view
-        returns (bytes32 hash)
-    {
-        /* Calculate the string a user must sign. */
-        return
-            keccak256(
-                abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, orderHash)
             );
     }
 
@@ -203,55 +210,18 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
         }
 
         /* Calculate hash which must be signed. */
-        bytes32 calculatedHashToSign = hashToSign(hash_);
-
-        /* Determine whether signer is a contract or account. */
-        bool isContract = exists(maker);
+        bytes32 typedHash = _hashTypedDataV4(hash_);
 
         /* (c): Contract-only authentication: EIP/ERC 1271. */
-        if (isContract) {
-            if (
-                ERC1271(maker).isValidSignature(
-                    abi.encodePacked(calculatedHashToSign),
-                    signature
-                ) == EIP_1271_MAGICVALUE
-            ) {
+        if (maker.isContract()) {
+            if (ERC1271(maker).isValidSignature(typedHash, signature) == EIP_1271_MAGICVALUE) {
                 return true;
             }
             return false;
         }
 
         /* (d): Account-only authentication: ECDSA-signed by maker. */
-        (uint8 v, bytes32 r, bytes32 s) = abi.decode(
-            signature,
-            (uint8, bytes32, bytes32)
-        );
-
-        if (signature.length > 65 && signature[signature.length - 1] == 0x03) {
-            // EthSign byte
-            /* (d.1): Old way: order hash signed by maker using the prefixed personal_sign */
-            if (
-                ecrecover(
-                    keccak256(
-                        abi.encodePacked(
-                            personalSignPrefix,
-                            "32",
-                            calculatedHashToSign
-                        )
-                    ),
-                    v,
-                    r,
-                    s
-                ) == maker
-            ) {
-                return true;
-            }
-        }
-        /* (d.2): New way: order hash signed by maker using sign_typed_data */
-        else if (ecrecover(calculatedHashToSign, v, r, s) == maker) {
-            return true;
-        }
-        return false;
+        return typedHash.recover(signature) == maker;
     }
 
     function encodeStaticCall(
