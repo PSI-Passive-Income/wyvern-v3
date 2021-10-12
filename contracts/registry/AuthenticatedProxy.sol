@@ -65,6 +65,30 @@ contract AuthenticatedProxy is TokenRecipient, OwnedUpgradeabilityStorage {
     }
 
     /**
+     * Execute a message call and assert success
+     *
+     * @dev Same functionality as `proxy`, just asserts the return value
+     * @param dest Address to which the call will be sent
+     * @param howToCall What kind of call to make
+     * @param data Calldata to send
+     */
+    function proxyAssert(
+        address dest,
+        HowToCall howToCall,
+        bytes memory data
+    ) external {
+        (bool result, string memory revertReason) = proxy(
+            dest,
+            howToCall,
+            data
+        );
+        require(
+            result,
+            string(abi.encodePacked("Proxy assertion failed: ", revertReason))
+        );
+    }
+
+    /**
      * Execute a message call from the proxy contract
      *
      * @dev Can be called by the user, or by a contract authorized by the registry as
@@ -78,40 +102,7 @@ contract AuthenticatedProxy is TokenRecipient, OwnedUpgradeabilityStorage {
         address dest,
         HowToCall howToCall,
         bytes memory data
-    ) public returns (bool result) {
-        (result, ) = _proxy(dest, howToCall, data);
-        return result;
-    }
-
-    /**
-     * Execute a message call and assert success
-     *
-     * @dev Same functionality as `proxy`, just asserts the return value
-     * @param dest Address to which the call will be sent
-     * @param howToCall What kind of call to make
-     * @param data Calldata to send
-     */
-    function proxyAssert(
-        address dest,
-        HowToCall howToCall,
-        bytes memory data
-    ) public {
-        (bool result, string memory revertReason) = _proxy(
-            dest,
-            howToCall,
-            data
-        );
-        require(
-            result,
-            string(abi.encodePacked("Proxy assertion failed: ", revertReason))
-        );
-    }
-
-    function _proxy(
-        address dest,
-        HowToCall howToCall,
-        bytes memory data
-    ) internal returns (bool result, string memory reason) {
+    ) public returns (bool result, string memory reason) {
         require(
             msg.sender == user || (!revoked && registry.contracts(msg.sender)),
             "Authenticated proxy can only be called by its user, or by a contract authorized by the registry as long as the user has not revoked access"

@@ -7,18 +7,6 @@
 pragma solidity ^0.8.6;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-
-
-
-/*
-
-  << Exchange Core >>
-
-*/
-
-pragma solidity ^0.8.6;
-
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -125,7 +113,9 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
         bytes32 indexed metadata
     );
 
-    constructor(string memory name, string memory version) EIP712(name, version) {}
+    constructor(string memory name, string memory version)
+        EIP712(name, version)
+    {}
 
     /* Functions */
 
@@ -214,7 +204,10 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
 
         /* (c): Contract-only authentication: EIP/ERC 1271. */
         if (maker.isContract()) {
-            if (ERC1271(maker).isValidSignature(typedHash, signature) == EIP_1271_MAGICVALUE) {
+            if (
+                ERC1271(maker).isValidSignature(typedHash, signature) ==
+                EIP_1271_MAGICVALUE
+            ) {
                 return true;
             }
             return false;
@@ -294,8 +287,9 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
     function executeCall(
         ProxyRegistryInterface registry,
         address maker,
-        Call memory call
-    ) internal returns (bool) {
+        Call memory call,
+        string memory whichCall
+    ) internal {
         /* Assert valid registry. */
         require(registries[address(registry)]);
 
@@ -322,7 +316,11 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
         AuthenticatedProxy proxy = AuthenticatedProxy(payable(delegateProxy));
 
         /* Execute order. */
-        return proxy.proxy(call.target, call.howToCall, call.data);
+        (bool success, string memory reason) = proxy.proxy(call.target, call.howToCall, call.data);
+        require(
+            success,
+            string(abi.encodePacked(whichCall, " call failed - ", reason))
+        );
     }
 
     function approveOrderHash(bytes32 hash_) internal {
@@ -460,23 +458,19 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
         /* Execute first call, assert success.
            This is the second "asymmetric" part of order matching: execution of the second order 
            can depend on state changes in the first order, but not vice-versa. */
-        require(
-            executeCall(
-                ProxyRegistryInterface(firstOrder.registry),
-                firstOrder.maker,
-                firstCall
-            ),
-            "First call failed"
+        executeCall(
+            ProxyRegistryInterface(firstOrder.registry),
+            firstOrder.maker,
+            firstCall,
+            "First"
         );
 
         /* Execute second call, assert success. */
-        require(
-            executeCall(
-                ProxyRegistryInterface(secondOrder.registry),
-                secondOrder.maker,
-                secondCall
-            ),
-            "Second call failed"
+        executeCall(
+            ProxyRegistryInterface(secondOrder.registry),
+            secondOrder.maker,
+            secondCall,
+            "Second"
         );
 
         /* Static calls must happen after the effectful calls so that they can check the resulting state. */

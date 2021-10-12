@@ -6,9 +6,12 @@
 
 pragma solidity ^0.8.6;
 
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./lib/EIP1271.sol";
 
 contract TestERC1271 is ERC1271 {
+    using ECDSA for bytes32;
+
     bytes4 internal constant SIGINVALID = 0x00000000;
 
     address internal owner;
@@ -29,21 +32,35 @@ contract TestERC1271 is ERC1271 {
      * @param _signature Encoded signature
      * @return magicValue Magic value if valid, zero-value otherwise
      */
-    function isValidSignature(bytes memory _data, bytes memory _signature)
+    function isValidSignature(bytes calldata _data, bytes memory _signature)
+        public
+        view
+        returns (bytes4 magicValue)
+    {
+        bytes32 hash = abi.decode(_data, (bytes32));
+        return isValidSignature(hash, _signature);
+    }
+
+    /**
+     * Check if a signature is valid
+     *
+     * @param _hash Data hash signed over
+     * @param _signature Encoded signature
+     * @return magicValue Magic value if valid, zero-value otherwise
+     */
+    function isValidSignature(bytes32 _hash, bytes memory _signature)
         public
         view
         override
         returns (bytes4 magicValue)
     {
-        bytes32 hash = abi.decode(_data, (bytes32));
         (uint8 v, bytes32 r, bytes32 s) = abi.decode(
             _signature,
             (uint8, bytes32, bytes32)
         );
-        if (owner == ecrecover(hash, v, r, s)) {
-            return MAGICVALUE;
-        } else {
-            return SIGINVALID;
-        }
+        return
+            returnIsValidSignatureMagicNumber(
+                owner == ecrecover(_hash, v, r, s)
+            );
     }
 }
