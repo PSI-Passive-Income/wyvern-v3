@@ -287,8 +287,7 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
     function executeCall(
         ProxyRegistryInterface registry,
         address maker,
-        Call memory call,
-        string memory whichCall
+        Call memory call
     ) internal {
         /* Assert valid registry. */
         require(registries[address(registry)]);
@@ -316,11 +315,7 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
         AuthenticatedProxy proxy = AuthenticatedProxy(payable(delegateProxy));
 
         /* Execute order. */
-        (bool success, string memory reason) = proxy.proxy(call.target, call.howToCall, call.data);
-        require(
-            success,
-            string(abi.encodePacked(whichCall, " call failed - ", reason))
-        );
+        proxy.proxyAssert(call.target, call.howToCall, call.data);
     }
 
     function approveOrderHash(bytes32 hash_) internal {
@@ -461,16 +456,14 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
         executeCall(
             ProxyRegistryInterface(firstOrder.registry),
             firstOrder.maker,
-            firstCall,
-            "First"
+            firstCall
         );
 
         /* Execute second call, assert success. */
         executeCall(
             ProxyRegistryInterface(secondOrder.registry),
             secondOrder.maker,
-            secondCall,
-            "Second"
+            secondCall
         );
 
         /* Static calls must happen after the effectful calls so that they can check the resulting state. */
