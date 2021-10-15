@@ -20,14 +20,12 @@ contract WyvernExchange is Exchange {
     string public constant codename = "Ancalagon";
 
     constructor(
-        address[] memory registryAddrs,
-        bytes memory customPersonalSignPrefix
-    ) Exchange(name, version) {
+        address[] memory registryAddrs
+    ) {
         for (uint256 ind = 0; ind < registryAddrs.length; ind++) {
             registries[registryAddrs[ind]] = true;
         }
-        if (customPersonalSignPrefix.length > 0) {
-            personalSignPrefix = customPersonalSignPrefix;
-        }
+
+        __EIP712_init_unchained(name, version);
     }
 }

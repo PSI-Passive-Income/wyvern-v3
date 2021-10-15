@@ -6,10 +6,9 @@
 
 pragma solidity ^0.8.6;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 
 import "../lib/StaticCaller.sol";
 import "../lib/ReentrancyGuarded.sol";
@@ -21,12 +20,11 @@ import "../registry/AuthenticatedProxy.sol";
  * @title ExchangeCore
  * @author Wyvern Protocol Developers
  */
-contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
+abstract contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712Upgradeable {
     using Address for address;
-    using ECDSA for bytes32;
+    using ECDSAUpgradeable for bytes32;
 
-    bytes4 internal constant EIP_1271_MAGICVALUE = 0x1626ba7e;
-    bytes internal personalSignPrefix = "\x19Ethereum Signed Message:\n";
+    bytes4 public constant EIP_1271_MAGICVALUE = 0x1626ba7e;
 
     /* Struct definitions. */
 
@@ -112,10 +110,6 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
         uint256 newSecondFill,
         bytes32 indexed metadata
     );
-
-    constructor(string memory name, string memory version)
-        EIP712(name, version)
-    {}
 
     /* Functions */
 

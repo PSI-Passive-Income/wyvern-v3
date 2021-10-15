@@ -11,7 +11,7 @@ pragma solidity ^0.8.6;
  * @author Wyvern Protocol Developers
  */
 contract ReentrancyGuarded {
-    bool reentrancyLock = false;
+    bool reentrancyLock;
 
     /* Prevent a contract function from being reentrant-called. */
     modifier reentrancyGuard() {

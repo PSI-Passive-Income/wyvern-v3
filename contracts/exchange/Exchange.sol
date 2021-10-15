@@ -12,10 +12,8 @@ import "./ExchangeCore.sol";
  * @title Exchange
  * @author Wyvern Protocol Developers
  */
-contract Exchange is ExchangeCore {
+abstract contract Exchange is ExchangeCore {
     /* external ABI-encodable method wrappers. */
-
-    constructor(string memory name, string memory version) ExchangeCore(name, version) {}
 
     function hashOrder_(
         address registry,
