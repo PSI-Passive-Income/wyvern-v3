@@ -309,7 +309,11 @@ abstract contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712Upgrade
         AuthenticatedProxy proxy = AuthenticatedProxy(payable(delegateProxy));
 
         /* Execute order. */
-        proxy.proxyAssert(call.target, call.howToCall, call.data);
+        proxy.proxyAssert(
+            call.target,
+            call.howToCall,
+            call.data
+        );
     }
 
     function approveOrderHash(bytes32 hash_) internal {
@@ -440,8 +444,8 @@ abstract contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712Upgrade
         /* Transfer any msg.value.
            This is the first "asymmetric" part of order matching: if an order requires Ether, 
            it must be the first order. */
-        if (msg.value > 0) {
-            payable(address(uint160(firstOrder.maker))).transfer(msg.value);
+        if (msg.value > 0 && firstCall.target != address(this)) {
+            payable(firstOrder.maker).call{value: msg.value};
         }
 
         /* Execute first call, assert success.
