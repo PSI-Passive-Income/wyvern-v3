@@ -413,31 +413,29 @@ abstract contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712Upgrade
         /* Prevent self-matching (possibly unnecessary, but safer). */
         require(firstHash != secondHash, "Self-matching orders is prohibited");
 
-        {
-            /* Calculate signatures (must be awkwardly decoded here due to stack size constraints). */
-            (bytes memory firstSignature, bytes memory secondSignature) = abi
-                .decode(signatures, (bytes, bytes));
+        /* Calculate signatures */
+        (bytes memory firstSignature, bytes memory secondSignature) = abi
+            .decode(signatures, (bytes, bytes));
 
-            /* Check first order authorization. */
-            require(
-                validateOrderAuthorization(
-                    firstHash,
-                    firstOrder.maker,
-                    firstSignature
-                ),
-                "First order failed authorization"
-            );
+        /* Check first order authorization. */
+        require(
+            validateOrderAuthorization(
+                firstHash,
+                firstOrder.maker,
+                firstSignature
+            ),
+            "First order failed authorization"
+        );
 
-            /* Check second order authorization. */
-            require(
-                validateOrderAuthorization(
-                    secondHash,
-                    secondOrder.maker,
-                    secondSignature
-                ),
-                "Second order failed authorization"
-            );
-        }
+        /* Check second order authorization. */
+        require(
+            validateOrderAuthorization(
+                secondHash,
+                secondOrder.maker,
+                secondSignature
+            ),
+            "Second order failed authorization"
+        );
 
         /* INTERACTIONS */
 
@@ -465,12 +463,32 @@ abstract contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712Upgrade
         );
 
         /* Static calls must happen after the effectful calls so that they can check the resulting state. */
+        executeStaticCalls(
+            firstOrder,
+            firstCall,
+            firstHash,
+            firstSignature,
+            secondOrder,
+            secondCall,
+            secondHash,
+            secondSignature,
+            metadata
+        );
+    }
 
-        /* Fetch previous first order fill. */
-        uint256 previousFirstFill = fills[firstOrder.maker][firstHash];
-
-        /* Fetch previous second order fill. */
-        uint256 previousSecondFill = fills[secondOrder.maker][secondHash];
+    function executeStaticCalls(
+        Order memory firstOrder,
+        Call memory firstCall,
+        bytes32 firstHash,
+        bytes memory firstSignature,
+        Order memory secondOrder,
+        Call memory secondCall,
+        bytes32 secondHash,
+        bytes memory secondSignature,
+        bytes32 metadata
+    ) internal {
+        uint256 firstPreviousFill = fills[firstOrder.maker][firstHash];
+        uint256 secondPreviousFill = fills[secondOrder.maker][secondHash];
 
         /* Execute first order static call, assert success, capture returned new fill. */
         uint256 firstFill = executeStaticCall(
@@ -480,7 +498,7 @@ abstract contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712Upgrade
             secondCall,
             msg.sender,
             msg.value,
-            previousFirstFill
+            firstPreviousFill
         );
 
         /* Execute second order static call, assert success, capture returned new fill. */
@@ -491,23 +509,19 @@ abstract contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712Upgrade
             firstCall,
             msg.sender,
             uint256(0),
-            previousSecondFill
+            secondPreviousFill
         );
 
         /* EFFECTS */
 
         /* Update first order fill, if necessary. */
-        if (firstOrder.maker != msg.sender) {
-            if (firstFill != previousFirstFill) {
-                fills[firstOrder.maker][firstHash] = firstFill;
-            }
+        if ((firstSignature.length == 64 || firstSignature.length == 65) && firstFill != firstPreviousFill) {
+            fills[firstOrder.maker][firstHash] = firstFill;
         }
 
         /* Update second order fill, if necessary. */
-        if (secondOrder.maker != msg.sender) {
-            if (secondFill != previousSecondFill) {
-                fills[secondOrder.maker][secondHash] = secondFill;
-            }
+        if ((secondSignature.length == 64 || secondSignature.length == 65) && secondFill != secondPreviousFill) {
+            fills[secondOrder.maker][secondHash] = secondFill;
         }
 
         /* LOGS */
